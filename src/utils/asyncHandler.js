@@ -7,7 +7,7 @@ const asyncHandler = (requestHandlerFn) => {
 };
 
 export default asyncHandler;
-
+// promise version end
 
 
 
