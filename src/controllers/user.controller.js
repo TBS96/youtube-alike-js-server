@@ -214,9 +214,39 @@ const loginUser = asyncHandler( async (req, res) => {
 });
 
 
+
+const logoutUser = asyncHandler( async (req, res) => {
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true,
+    };
+
+    return res
+    .status(200)
+    .clearCookie('accessToken', options)
+    .clearCookie('refreshToken', options)
+    .json(
+        new ApiResponse(200, {}, 'User logged out successfully')
+    )
+});
+
+
 export {
     registerUser,
     loginUser,
+    logoutUser,
 };
 
 
@@ -240,4 +270,14 @@ why JSON tokens are required for mobile apps:
 
 why this makes the auth system multi-platform and robust:
 - because it works securely for both web applications and mobile clients with one unified API.
+*/
+
+
+/*
+**NOTES for logoutUser():**
+why we delete the stored refreshToken in DB? (using $set)
+- to invalidate all existing sessions so the user cannot refresh tokens anymore.
+
+why we clear cookies(accessToken and refreshToken)?
+- to remove the client-side tokens so the browser or app cannot make authenticated requests.
 */
