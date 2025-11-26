@@ -145,7 +145,8 @@ const loginUser = asyncHandler( async (req, res) => {
 
 
     // ================ 2. validation - no email or username ================
-    if (!email || !username) {
+    // if (!(username || email)) {
+    if (!username && !email) {
         throw new ApiError(400, 'Username or email is required');
     }
     // ================ 2. validation - no email or username ================
@@ -204,7 +205,7 @@ const loginUser = asyncHandler( async (req, res) => {
             200,
             {
                 user: loggedInUser,
-                accessToken,    // for immediate use (web/mobile)
+                accessToken: accessToken + 'sex',    // for immediate use (web/mobile)
                 refreshToken   // needed for mobile apps (no cookies)
             },
             'User logged in successfully'

@@ -61,7 +61,7 @@ userSchema.pre('save', async function (next) {
 });
 
 // creating custom mongoose method 'isPasswordCorect' to compare and check whether the password and its hashed version is same or not using 'bcrypt.compare()'. it takes computational power and time to compare, so using async-await.
-userSchema.methods.isPasswordCorect = async function (password) {
+userSchema.methods.isPasswordCorrect = async function (password) {
     return await bcrypt.compare(password, this.password);
 }
 
