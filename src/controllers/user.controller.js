@@ -3,6 +3,9 @@ import { ApiError } from '../utils/ApiError.js'
 import { User } from '../models/user.model.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import jwt from 'jsonwebtoken';
+import conf from '../conf/conf.js';
+import { options } from '../constants.js';
 
 
 
@@ -184,10 +187,6 @@ const loginUser = asyncHandler( async (req, res) => {
     const loggedInUser = await User.findById(user._id).select('-password -refreshToken');
     // console.log(loggedInUser);
 
-    const options = {
-        httpOnly: true,
-        secure: true,
-    };
 
     /* NOTE:
     WHY SENDING TOKENS IN BOTH COOKIE + JSON?
@@ -247,10 +246,99 @@ const logoutUser = asyncHandler( async (req, res) => {
 });
 
 
+
+const refreshTheAccessToken = asyncHandler( async (req, res) => {
+    /* ** algorithm to follow step by step, for refreshing the access token **
+    1. get incoming refresh token from cookies (web) or request body (mobile / API client)
+    2. validate - if no refresh token found, block the request as unauthorized
+    3. verify and decode the refresh token using the refreshTokenSecret (jwt.verify)
+    4. find the user in DB using the decoded user id
+    5. validate - if user not found, treat refresh token as invalid
+    6. check that the incoming refresh token matches the refreshToken stored in DB
+    7. generate a new access token and a new refresh token for this user (token rotation)
+    8. send back the new access & refresh tokens in cookies (for web) and JSON response (for mobile / API clients)
+    */
+
+    // ======== 1. incomingRefreshToken is the refresh token sent from the client, coming either from cookies (web browsers) or request body (mobile apps). It is used to request a new access token when the old one expires. Without this token, the server cannot verify if the user session is still valid. ========
+    // console.log('req.cookies?.refreshToken:', req.cookies?.refreshToken);
+    // console.log('req.body?.refreshToken:', req.body?.refreshToken);
+    // console.log("req.header", req.header('Authorization')?.replace('Bearer ', ''));
+
+    const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken || req.header('Authorization')?.replace('Bearer ', '');
+    // console.log('incoming refresh token:', incomingRefreshToken);
+    // ======== 1. incomingRefreshToken is the refresh token sent from the client, coming either from cookies (web browsers) or request body (mobile apps). It is used to request a new access token when the old one expires. Without this token, the server cannot verify if the user session is still valid. ========
+
+
+    // 2. ======== validate - if no refresh token found, block the request as unauthorized ========
+    if (!incomingRefreshToken) {
+        throw new ApiError(401, 'Unauthorized request');
+    }
+    // 2. ======== validate - if no refresh token found, block the request as unauthorized ========
+
+
+    try {
+        // ======== 3. decodedToken verifies and decodes the refresh token to extract the user ID and ensure the token is valid and not expired ========
+        const decodedToken = jwt.verify(incomingRefreshToken, conf.refreshTokenSecret);
+        // console.log('decoded token:', decodedToken);
+        // ======== 3. decodedToken verifies and decodes the refresh token to extract the user ID and ensure the token is valid and not expired ========
+
+    
+        // ======== 4. fetches the user from the DB using the decoded user ID to ensure the refresh token belongs to a valid existing user ========
+        const user = await User.findById(decodedToken?._id);
+        // console.log('user:', user);
+        // ======== 4. fetches the user from the DB using the decoded user ID to ensure the refresh token belongs to a valid existing user ========
+    
+        
+        // =========== 5. validate - if user not found, treat refresh token as invalid ===========
+        if (!user) {
+            throw new ApiError(401, 'Invalid refresh token');
+        }
+        // =========== 5. validate - if user not found, treat refresh token as invalid ===========
+
+    
+        // =========== 6. ensures the provided refresh token from client matches the one stored in the database to prevent reuse of expired or stolen tokens ===========
+        if (incomingRefreshToken !== user?.refreshToken) {
+            throw new ApiError(401, 'Refresh token is expired or used');
+        }
+        // =========== 6. ensures the provided refresh token from client matches the one stored in the database to prevent reuse of expired or stolen tokens ===========
+    
+        
+        // ======== 7. generate a new access token and a new refresh token for this user (token rotation) ========
+        // const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
+        // renamed to newRefreshToken => freshly generated refresh token replacing the old one to maintain secure token rotation
+        const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshTokens(user._id);
+        // ======== 7. generate a new access token and a new refresh token for this user (token rotation) ========
+
+    
+        // ========== 8. send back the new access & refresh tokens in cookies (for web) and JSON response (for mobile / API clients) ==========
+        return res
+        .status(200)
+        .cookie('accessToken', accessToken, options)
+        // .cookie('refreshToken', refreshToken, options)
+        .cookie('refreshToken', newRefreshToken, options)
+        .json(
+            new ApiResponse(
+                200,
+                {
+                    accessToken,
+                    // refreshToken
+                    refreshToken: newRefreshToken
+                },
+                'Access token refreshed'
+            )
+        )
+        // ========== 8. send back the new access & refresh tokens in cookies (for web) and JSON response (for mobile / API clients) ==========
+    }
+    catch (error) {
+        throw new ApiError(401, error?.message || 'Invalid refresh token');
+    }
+});
+
 export {
     registerUser,
     loginUser,
     logoutUser,
+    refreshTheAccessToken,
 };
 
 
