@@ -375,12 +375,29 @@ const changeCurrentPassword = asyncHandler( async (req, res) => {
 });
 
 
+
+const getCurrentUser = asyncHandler( async (req, res) => {
+    /* ** algorithm to follow step by step, for getting current authenticated user **
+    1. verifyJWT middleware authenticates the user and attaches the user data to req.user
+    2. directly return the req.user object as the currently logged-in user’s info
+    3. send a success response with the user details
+    */
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, req.user, 'Current user fetched successfully')
+    )
+});
+
+
 export {
     registerUser,
     loginUser,
     logoutUser,
     refreshTheAccessToken,
     changeCurrentPassword,
+    getCurrentUser,
 };
 
 
