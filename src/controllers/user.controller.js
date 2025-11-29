@@ -438,6 +438,67 @@ const updateAccountDetails = asyncHandler( async (req, res) => {
 });
 
 
+
+const updateUserAvatar = asyncHandler( async (req, res) => {
+    /* ** algorithm to follow step by step, for updating user avatar **
+    1. extract the uploaded image path from req.file (handled by multer)
+    2. validate that an avatar file is provided, otherwise throw an error
+    3. upload the avatar image to Cloudinary and get the hosted image URL
+    4. validate the upload success by ensuring the returned URL exists
+    5. update the authenticated user’s avatar field in the database with the new image URL and exclude password
+    6. send a success response confirming the avatar update
+    */
+
+    // =========== 1. extract the uploaded image path from req.file (handled by multer) ===========
+    const avatarLocalPath = req.file?.path;
+    // console.log('Update user avatar path:', avatarLocalPath);
+    // =========== 1. extract the uploaded image path from req.file (handled by multer) ===========
+
+
+    // ========== 2. validate that an avatar file is provided, otherwise throw an error ==========
+    if (!avatarLocalPath) {
+        throw new ApiError(400, 'Avatar file is missing');
+    }
+    // ========== 2. validate that an avatar file is provided, otherwise throw an error ==========
+
+
+    // ================== 3. upload the avatar image to Cloudinary and get the hosted image URL ==================
+    const avatar = await uploadOnCloudinary(avatarLocalPath);
+    // ================== 3. upload the avatar image to Cloudinary and get the hosted image URL ==================
+
+    
+    // ================== 4. validate the upload success by ensuring the returned URL exists ==================
+    if (!avatar.url) {
+        throw new ApiError(400, 'Error while uploading on avatar');
+    }
+    // ================== 4. validate the upload success by ensuring the returned URL exists ==================
+
+    
+    // =============== 5. update the authenticated user’s avatar field in the database with the new image URL and exclude password ===============
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                avatar: avatar.url
+            }
+        },
+        {
+            new: true
+        }
+    ).select('-password');
+    // =============== 5. update the authenticated user’s avatar field in the database with the new image URL and exclude password ===============
+
+    
+    // ================ 6. send a success response confirming the avatar update ================
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, user, 'Avatar image updated successfully')
+    )
+    // ================ 6. send a success response confirming the avatar update ================
+});
+
+
 export {
     registerUser,
     loginUser,
@@ -446,6 +507,7 @@ export {
     changeCurrentPassword,
     getCurrentUser,
     updateAccountDetails,
+    updateUserAvatar,
 };
 
 
