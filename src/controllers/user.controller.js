@@ -231,11 +231,6 @@ const logoutUser = asyncHandler( async (req, res) => {
         }
     )
 
-    const options = {
-        httpOnly: true,
-        secure: true,
-    };
-
     return res
     .status(200)
     .clearCookie('accessToken', options)
@@ -334,11 +329,58 @@ const refreshTheAccessToken = asyncHandler( async (req, res) => {
     }
 });
 
+
+
+const changeCurrentPassword = asyncHandler( async (req, res) => {
+    /* ** algorithm to follow step by step, for change current password **
+    1. get oldPassword and newPassword from the request body
+    2. find the currently authenticated user using req.user._id (set by verifyJWT middleware)
+    3. verify if the provided oldPassword matches the stored password in DB. if incorrect, throw an error for invalid old password
+    4. update the user's password with the newPassword and save the updated user to the database (skip validation for refreshToken field)
+    5. return a success response confirming password update
+    */
+
+    // ============== 1. get oldPassword and newPassword from the request body ==============
+    const { oldPassword, newPassword } = req.body;
+    // ============== 1. get oldPassword and newPassword from the request body ==============
+
+    
+    // =============== 2. find the currently authenticated user using req.user._id (set by verifyJWT middleware) ===============
+    const user = await User.findById(req.user?._id);
+    // =============== 2. find the currently authenticated user using req.user._id (set by verifyJWT middleware) ===============
+
+
+    // ========== 3. verify if the provided oldPassword matches the stored password in DB. if incorrect, throw an error for invalid old password ==========
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+    if (!isPasswordCorrect) {
+        throw new ApiError(400, 'Invalid Old Password');
+    }
+    // ========== 3. verify if the provided oldPassword matches the stored password in DB. if incorrect, throw an error for invalid old password ==========
+
+
+    // ======== 4. update the user's password with the newPassword and save the updated user to the database (skip validation for refreshToken field) ========
+    user.password = newPassword;
+    await user.save({ validateBeforeSave: false })
+    // ======== 4. update the user's password with the newPassword and save the updated user to the database (skip validation for refreshToken field) ========
+
+
+    // ============ 5. return a success response confirming password update ============
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, {}, 'Password changed successfully')
+    )
+    // ============ 5. return a success response confirming password update ============
+});
+
+
 export {
     registerUser,
     loginUser,
     logoutUser,
     refreshTheAccessToken,
+    changeCurrentPassword,
 };
 
 
