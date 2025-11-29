@@ -391,6 +391,53 @@ const getCurrentUser = asyncHandler( async (req, res) => {
 });
 
 
+
+const updateAccountDetails = asyncHandler( async (req, res) => {
+    /* ** algorithm to follow step by step, for updating account details **
+    1. extract fullName and email from the request body
+    2. validate that both fields are provided, otherwise throw an error
+    3. find the currently authenticated user using req.user._id and update the provided fields in the database and exclude password
+    4. send a success response confirming the update
+    */
+
+    // ============== 1. extract fullName and email from the request body ==============
+    const { fullName, email } = req.body;
+    // ============== 1. extract fullName and email from the request body ==============
+
+
+    // ================ 2. validate that both fields are provided, otherwise throw an error ================
+    if (!fullName || !email) {
+        throw new ApiError(400, 'All fields are required');
+    }
+    // ================ 2. validate that both fields are provided, otherwise throw an error ================
+
+
+    // ========= 3. find the currently authenticated user using req.user._id and update the provided fields in the database and exclude password =========
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                fullName: fullName,
+                email: email
+            }
+        },
+        {
+            new: true
+        }
+    ).select('-password')
+    // ========= 3. find the currently authenticated user using req.user._id and update the provided fields in the database and exclude password =========
+
+
+    // ========== 4. send a success response confirming the update ==========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, user, 'Account details updated successfully')
+    )
+    // ========== 4. send a success response confirming the update ==========
+});
+
+
 export {
     registerUser,
     loginUser,
@@ -398,6 +445,7 @@ export {
     refreshTheAccessToken,
     changeCurrentPassword,
     getCurrentUser,
+    updateAccountDetails,
 };
 
 
