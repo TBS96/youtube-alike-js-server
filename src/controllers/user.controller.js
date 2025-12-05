@@ -91,6 +91,7 @@ const registerUser = asyncHandler( async (req, res) => {
     // const avatar = await uploadOnCloudinary(avatarLocalPath);
     const avatar = avatarLocalPath ? await uploadOnCloudinary(avatarLocalPath) : null;
     // console.log(`Avatar uploaded on cloudinary: ${avatar}`);
+    // console.log(`Avatar uploaded on cloudinary public id: ${avatar.public_id}`);
     const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath): null;
 
     if (!avatar) {
@@ -383,6 +384,7 @@ const getCurrentUser = asyncHandler( async (req, res) => {
     3. send a success response with the user details
     */
 
+    // console.log('userdata from req.user', req.user);
     return res
     .status(200)
     .json(
@@ -402,6 +404,7 @@ const updateAccountDetails = asyncHandler( async (req, res) => {
 
     // ============== 1. extract fullName and email from the request body ==============
     const { fullName, email } = req.body;
+    // console.log(`fname: ${fullName}, email: ${email}`);
     // ============== 1. extract fullName and email from the request body ==============
 
 
@@ -463,7 +466,7 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
 
 
     // ================== 3. upload the avatar image to Cloudinary and get the hosted image URL ==================
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
+    const avatar = avatarLocalPath ? await uploadOnCloudinary(avatarLocalPath) : null;
     // ================== 3. upload the avatar image to Cloudinary and get the hosted image URL ==================
 
     
@@ -524,7 +527,7 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
 
 
     // ================== 3. upload the cover image to Cloudinary and get the hosted image URL ==================
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+    const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath) : null;
     // ================== 3. upload the cover image to Cloudinary and get the hosted image URL ==================
 
     
@@ -540,7 +543,7 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
         req.user?._id,
         {
             $set: {
-                coverImage: coverImage
+                coverImage: coverImage.url
             }
         },
         {
