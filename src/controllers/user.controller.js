@@ -1,7 +1,7 @@
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js'
 import { User } from '../models/user.model.js'
-import { uploadOnCloudinary } from '../utils/cloudinary.js';
+import { deleteFromCloudinary, uploadOnCloudinary } from '../utils/cloudinary.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import jwt from 'jsonwebtoken';
 import conf from '../conf/conf.js';
@@ -104,7 +104,9 @@ const registerUser = asyncHandler( async (req, res) => {
     const user = await User.create({
         fullName,
         avatar: avatar.url,
+        avatarPublicId: avatar.public_id,
         coverImage: coverImage?.url || '',
+        coverImagePublicId: coverImage?.public_id || '',
         email,
         password,
         username: username.toLowerCase()
@@ -464,6 +466,10 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
     }
     // ========== 2. validate that an avatar file is provided, otherwise throw an error ==========
 
+    
+    const oldUser =  await User.findById(req.user?._id);
+    const oldAvatarPublicId = oldUser.avatarPublicId;
+
 
     // ================== 3. upload the avatar image to Cloudinary and get the hosted image URL ==================
     const avatar = avatarLocalPath ? await uploadOnCloudinary(avatarLocalPath) : null;
@@ -476,13 +482,18 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
     }
     // ================== 4. validate the upload success by ensuring the returned URL exists ==================
 
+    if (oldAvatarPublicId) {
+        await deleteFromCloudinary(oldAvatarPublicId);
+    }
+
     
     // =============== 5. update the authenticated user’s avatar field in the database with the new image URL and exclude password ===============
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
-                avatar: avatar.url
+                avatar: avatar.url,
+                avatarPublicId: avatar.public_id
             }
         },
         {
@@ -525,6 +536,9 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
     }
     // ========== 2. validate that cover image file is provided, otherwise throw an error ==========
 
+    const oldUser = await User.findById(req.user?._id);
+    const  oldCoverImagePublicId = oldUser.coverImagePublicId;
+
 
     // ================== 3. upload the cover image to Cloudinary and get the hosted image URL ==================
     const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath) : null;
@@ -537,13 +551,18 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
     }
     // ================== 4. validate the upload success by ensuring the returned URL exists ==================
 
+    if (oldCoverImagePublicId) {
+        await deleteFromCloudinary(oldCoverImagePublicId);
+    }
+
     
     // =============== 5. update the authenticated user’s coverImage field in the database with the new image URL and exclude password ===============
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
-                coverImage: coverImage.url
+                coverImage: coverImage.url,
+                coverImagePublicId: coverImage.public_id
             }
         },
         {
@@ -561,8 +580,6 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
     )
     // ================ 6. send a success response confirming the coverImage update ================
 });
-
-// TODO: create utility functions to delete the old avatar and cover images in cloudinary after updating them
 
 
 export {
