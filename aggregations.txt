@@ -1,0 +1,18 @@
+[
+  {
+    $lookup: {
+      from: "users",
+      localField: "username",
+      foreignField: "_id",
+      as: "testArrayResult"
+    }
+  },
+  {
+    $addFields: {
+      testArrayResult: {
+        // $first: '$testArrayResult'
+        $arrayElemAt: ["$testArrayResult", 0]
+      }
+    }
+  }
+]
