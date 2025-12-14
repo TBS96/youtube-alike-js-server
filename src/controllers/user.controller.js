@@ -582,6 +582,122 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
 });
 
 
+
+const getUserChannelProfile = asyncHandler( async (req, res) => {
+    /* ** algorithm to follow step by step, to get user channel profile **
+    1. extract the username from req.params
+    2. validate that username is provided and not empty, otherwise throw an error
+    3. find the channel user using an aggregation pipeline based on the username
+    4. lookup subscribers of the channel from the subscriptions collection
+    5. lookup channels that this user has subscribed to
+    6. calculate total subscribers count and total subscribed channels count
+    7. determine whether the currently logged-in user is subscribed to this channel
+    8. project only the required public channel fields for the response
+    9. if no channel is found, throw a channel not found error
+    10. return the channel profile data with a success response
+    */
+
+    // ============== 1. extract the username from req.params ==============
+    const { username } = req.params;
+    console.log('username:', username);
+    // ============== 1. extract the username from req.params ==============
+
+
+    // ================ 2. validate that username is provided and not empty, otherwise throw an error ================
+    if (!username?.trim()) {
+        throw new ApiError(400, 'Username is missing');
+    }
+    // ================ 2. validate that username is provided and not empty, otherwise throw an error ================
+
+
+    const channel = await User.aggregate([
+        // =========== 3. find the channel user using an aggregation pipeline based on the username ===========
+        {
+            $match: {
+                username: username?.toLowerCase()
+            }
+        },
+        // =========== 3. find the channel user using an aggregation pipeline based on the username ===========
+
+        // ============= 4. lookup subscribers of the channel from the subscriptions collection =============
+        {
+            $lookup: {
+                from: 'subscriptions',
+                localField: '_id',
+                foreignField: 'channel',
+                as: 'subscribers'
+            }
+        },
+        // ============= 4. lookup subscribers of the channel from the subscriptions collection =============
+        
+        // =================== 5. lookup channels that this user has subscribed to ===================
+        {
+            $lookup: {
+                from: 'subscriptions',
+                localField: '_id',
+                foreignField: 'subscriber',
+                as: 'subscribedTo'
+            }
+        },
+        // =================== 5. lookup channels that this user has subscribed to ===================
+        
+        {
+            $addFields: {
+                // ============ 6. calculate total subscribers count and total subscribed channels count ============
+                subscribersCount: {
+                    $size: '$subscribers'
+                },
+                channelsSubscribedToCount: {
+                    $size: '$subscribedTo'
+                },
+                // ============ 6. calculate total subscribers count and total subscribed channels count ============
+
+                // =========== 7. determine whether the currently logged-in user is subscribed to this channel ===========
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [req.user?._id, '$subscribers.subscribers']},
+                        then: true,
+                        else: false
+                    }
+                }
+                // =========== 7. determine whether the currently logged-in user is subscribed to this channel ===========
+            }
+        },
+        
+        // ============ 8. project only the required public channel fields for the response ============
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1,
+            }
+        }
+        // ============ 8. project only the required public channel fields for the response ============
+    ]);
+
+    // ================ 9. if no channel is found, throw a channel not found error ================
+    if (!channel?.length) {
+        throw new ApiError(404, 'Channel does not exist');
+    }
+    console.log('Channel:', channel);
+    // ================ 9. if no channel is found, throw a channel not found error ================
+    
+
+    // ============== 10. return the channel profile data with a success response ==============
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, channel, 'User channel fetched successfully')
+    )
+    // ============== 10. return the channel profile data with a success response ==============
+});
+
+
 export {
     registerUser,
     loginUser,
@@ -592,6 +708,7 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
+    getUserChannelProfile,
 };
 
 
