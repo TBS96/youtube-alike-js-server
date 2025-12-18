@@ -6,6 +6,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import jwt from 'jsonwebtoken';
 import conf from '../conf/conf.js';
 import { options } from '../constants.js';
+import mongoose from 'mongoose';
 
 
 
@@ -698,6 +699,93 @@ const getUserChannelProfile = asyncHandler( async (req, res) => {
 });
 
 
+const getWatchHistory = asyncHandler(async(req, res) => {
+
+    /* ** algorithm to follow step by step, for getting user watch history **
+    1. match the currently authenticated user using req.user._id in an aggregation pipeline
+    2. lookup the videos collection to populate the user's watchHistory array
+    3. for each video, lookup the owner (channel) details from the users collection
+    4. project only required public fields of the video owner (fullName, username, avatar)
+    5. attach the owner information to each video in the watch history
+    6. validate that the user exists, otherwise throw an error
+    7. return the populated watch history array with a success response
+    */
+
+    const user = await User.aggregate([
+        // ============== 1. match the currently authenticated user using req.user._id in an aggregation pipeline ==============
+        {
+            $match: {
+                // _id: new mongoose.Types.ObjectId(req.user?._id),    // we got the user (old deprecated method)
+                _id: mongoose.Types.ObjectId.createFromHexString(req.user?._id.toString()),    // we got the user (new method)
+            }
+        },
+        // ============== 1. match the currently authenticated user using req.user._id in an aggregation pipeline ==============
+
+        // ============== 2. lookup the videos collection to populate the user's watchHistory array ==============
+        {
+            $lookup: {
+                from: 'videos',
+                localField: 'watchHistory',
+                foreignField: '_id',
+                as: 'watchHistory',   // we got all the videos in watchHistory array of user schema except the owner info
+                pipeline: [
+                    // ============ 3. for each video, lookup the owner (channel) details from the users collection ============
+                    {
+                        $lookup: {      // now i'm inside the video schema
+                            from: 'users',
+                            localField: 'owner',
+                            foreignField: '_id',
+                            as: 'owner',
+                            pipeline: [
+                                // ========== 4. project only required public fields of the video owner (fullName, username, avatar) ==========
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }   // only these 3 fields will be projected to the owner
+                                }
+                                // ========== 4. project only required public fields of the video owner (fullName, username, avatar) ==========
+                            ]
+                        }
+                    }
+                    // ============ 3. for each video, lookup the owner (channel) details from the users collection ============
+                ]
+            }
+        },  // upto this, we got array of videos
+        // ============== 2. lookup the videos collection to populate the user's watchHistory array ==============
+
+        // ============== 5. attach the owner information to each video in the watch history ==============
+        {   // to further simplify down for frontend, lets take the 1st element from array and overwrite in owner field
+            $addFields: {
+                owner: {
+                    $first: '$owner'
+                }
+            }
+        }
+        // ============== 5. attach the owner information to each video in the watch history ==============
+    ]);
+
+    
+    // ============== 6. validate that the user exists, otherwise throw an error ==============
+    if (!user.length) {
+        throw new ApiError(404, 'User does not exist');
+    }
+    // ============== 6. validate that the user exists, otherwise throw an error ==============
+
+    console.log('user watch history:', user?.[0].watchHistory);
+
+    
+    // =========== 7. return the populated watch history array with a success response ===========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, user?.[0].watchHistory, 'Watch history fetched successfully')
+    )
+    // =========== 7. return the populated watch history array with a success response ===========
+});
+
+
 export {
     registerUser,
     loginUser,
@@ -709,6 +797,7 @@ export {
     updateUserAvatar,
     updateUserCoverImage,
     getUserChannelProfile,
+    getWatchHistory,
 };
 
 
