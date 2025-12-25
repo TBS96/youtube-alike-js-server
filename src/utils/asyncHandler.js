@@ -1,8 +1,9 @@
 // promise version start
 const asyncHandler = (requestHandlerFn) => {
     return (req, res, next) => {
-        Promise.resolve(requestHandlerFn(req, res, next))
-            .catch((err) => next(err))
+        Promise
+        .resolve(requestHandlerFn(req, res, next))
+        .catch((err) => next(err))
     }
 };
 
