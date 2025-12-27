@@ -18,7 +18,8 @@ const uploadOnCloudinary = async (localFilePath) => {
 
         // upload the file on cloudinary
         const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: 'auto'
+            resource_type: 'auto',
+            upload_preset: conf.cloudinaryUploadPreset
         })
 
         // file has been uploaded successfully
@@ -27,12 +28,16 @@ const uploadOnCloudinary = async (localFilePath) => {
         // console.log(`File is uploaded in cloudinary(secure_url): ${response.secure_url}`);
         // console.log(`File is uploaded in cloudinary(original_filename): ${response.original_filename}`);
 
-        fs.unlinkSync(localFilePath);
+        if (fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath);
+        }
         return response;
     }
     catch (error) {
-        console.error('CLOUDIDARY REJECTION ERROR:', error);
-        fs.unlinkSync(localFilePath);   // removes the locally saved temporary file as the upload operation got failed.
+        console.error('CLOUDIDARY REJECTION ERROR:', error.message);
+        if (fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath);   // removes the locally saved temporary file as the upload operation got failed.
+        }
         return null;
     }
 };

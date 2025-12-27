@@ -15,6 +15,7 @@ const conf = {
     cloudinaryCloudName: String(process.env.CLOUDINARY_CLOUD_NAME),
     cloudinaryApiKey: String(process.env.CLOUDINARY_API_KEY),
     cloudinaryApiSecret: String(process.env.CLOUDINARY_API_SECRET),
+    cloudinaryUploadPreset: String(process.env.CLOUDINARY_UPLOAD_PRESET),
 };
 
 export default conf;

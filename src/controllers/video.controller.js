@@ -54,7 +54,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     let thumbnail, videoFile;
 
     try {
-        const [thumbnail, videoFile] = await Promise.all([
+        [thumbnail, videoFile] = await Promise.all([
             uploadOnCloudinary(thumbnailLocalPath),
             uploadOnCloudinary(videoFileLocalPath)
         ]);
