@@ -3,6 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { deleteFromCloudinary, uploadOnCloudinary } from '../utils/cloudinary.js'
 import { Video } from '../models/video.model.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import mongoose, { isValidObjectId } from "mongoose";
 
 
 
@@ -118,6 +119,137 @@ const publishAVideo = asyncHandler(async (req, res) => {
     }
 });
 
+
+
+const getVideoById = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to get a video by its ID **
+    1. extract the videoId from req.params
+    2. validate that videoId is a valid MongoDB ObjectId to prevent BSON errors
+    3. increment and update view count of the video in DB
+    4. start an aggregation pipeline on the Video collection matching the videoId
+    5. join with the users collection to fetch uploader (owner) details
+    6. join with the likes collection to fetch all documents associated with this video
+    7. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video
+    8. use projection to remove unnecessary raw data (the likes array) before sending the response
+    9. verify that the video exists in the aggregation results
+    10. return the final video object with a success response
+*/
+
+    // ============== 1. extract the videoId from req.params ==============
+    const { videoId } = req.params;
+    console.log(`VideoId from req.params: ${videoId}`);
+    // ============== 1. extract the videoId from req.params ==============
+
+
+    // ========== 2. check if videoId is a valid MongoDB ID (automatically handles empty/undefined/junk strings) ==========
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, 'The provided video ID is invalid or missing');
+    }
+    // ========== 2. check if it's a valid MongoDB ID (automatically handles empty/undefined/junk strings) ==========
+
+
+    // ========== 3. increment and update view count of the video in DB ==========
+    await Video.findByIdAndUpdate(videoId, {
+        $inc: {
+            views: 1
+        }
+    });
+    // ========== 3. increment and update view count of the video in DB ==========
+    
+
+
+    // Aggregate Pipeline logic: 4,5,6,7,8
+    const video = await Video.aggregate([
+        // ============= 4. match the videoId =============
+        {
+            $match: {
+                _id: mongoose.Types.ObjectId.createFromHexString(videoId)
+            }
+        },
+        // ============= 4. match the videoId =============
+
+        // ======== 5. join with the users collection to fetch uploader (owner) details ========
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'owner',
+                foreignField: '_id',
+                as: 'owner',
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            avatar: 1,
+                            fullName: 1
+                        }
+                    }
+                ]
+            }
+        },
+        // ======== 5. join with the users collection to fetch uploader (owner) details ========
+        
+        // ======== 6. join with the likes collection to fetch all documents associated with this video ========
+        {
+            $lookup: {
+                from: 'likes',
+                localField: '_id',
+                foreignField: 'video',
+                as: 'likes'
+            }
+        },
+        // ======== 6. join with the likes collection to fetch all documents associated with this video ========
+        
+        // ======== 7. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video ========
+        {
+            $addFields: {
+                owner: {
+                    $first: '$owner'
+                },
+                likesCount: {
+                    $size: '$likes'
+                },
+                isLiked: {
+                    $cond: {
+                        if: { $in: [mongoose.Types.ObjectId.createFromHexString(String(req.user?._id)), '$likes.likedBy'] },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        // ======== 7. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video ========
+        
+        // ======== 8. use projection to remove unnecessary raw data (the likes array) before sending the response ========
+        {
+            $project: {
+                likes: 0
+            }
+        }
+        // ======== 8. use projection to remove unnecessary raw data (the likes array) before sending the response ========
+    ]);
+
+    // =========== 9. verify that the video exists in the aggregation results ===========
+    if (!video?.length) {
+        throw new ApiError(404, 'Video does not exist');
+    }
+    
+    console.log('Video array after aggregation: ', video);
+    // =========== 9. verify that the video exists in the aggregation results ===========
+
+    // if (!video.isPublished && String(video.owner?._id) !== String(req.user?._id)) {
+    //     throw new ApiError(403, 'This video is private');
+    // }
+
+    // ========== 10. return the final video object with a success response ==========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, video[0], 'Video details fetched successfully')
+    );
+    // ========== 10. return the final video object with a success response ==========
+});
+
 export {
     publishAVideo,
+    getVideoById,
 }
