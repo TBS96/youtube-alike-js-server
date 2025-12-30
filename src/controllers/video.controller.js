@@ -2,6 +2,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { deleteFromCloudinary, uploadOnCloudinary } from '../utils/cloudinary.js'
 import { Video } from '../models/video.model.js';
+import { User } from '../models/user.model.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import mongoose, { isValidObjectId } from "mongoose";
 
@@ -126,13 +127,14 @@ const getVideoById = asyncHandler(async (req, res) => {
     1. extract the videoId from req.params
     2. validate that videoId is a valid MongoDB ObjectId to prevent BSON errors
     3. increment and update view count of the video in DB
-    4. start an aggregation pipeline on the Video collection matching the videoId
-    5. join with the users collection to fetch uploader (owner) details
-    6. join with the likes collection to fetch all documents associated with this video
-    7. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video
-    8. use projection to remove unnecessary raw data (the likes array) before sending the response
-    9. verify that the video exists in the aggregation results
-    10. return the final video object with a success response
+    4. check if user is logged in add the video to the watchHistory[] of user collection
+    5. start an aggregation pipeline on the Video collection matching the videoId
+    6. join with the users collection to fetch uploader (owner) details
+    7. join with the likes collection to fetch all documents associated with this video
+    8. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video
+    9. use projection to remove unnecessary raw data (the likes array) before sending the response
+    10. verify that the video exists in the aggregation results
+    11. return the final video object with a success response
 */
 
     // ============== 1. extract the videoId from req.params ==============
@@ -155,20 +157,31 @@ const getVideoById = asyncHandler(async (req, res) => {
         }
     });
     // ========== 3. increment and update view count of the video in DB ==========
+
+
+    // ========== 4. check if user is logged in add the video to the watchHistory[] of user collection ==========
+    if (req.user?._id) {
+        await User.findByIdAndUpdate(req.user?._id, {
+            $addToSet: {
+                watchHistory: mongoose.Types.ObjectId.createFromHexString(videoId)
+            }
+        });
+    }
+    // ========== 4. check if user is logged in add the video to the watchHistory[] of user collection ==========
     
 
 
     // Aggregate Pipeline logic: 4,5,6,7,8
     const video = await Video.aggregate([
-        // ============= 4. match the videoId =============
+        // ============= 5. match the videoId =============
         {
             $match: {
                 _id: mongoose.Types.ObjectId.createFromHexString(videoId)
             }
         },
-        // ============= 4. match the videoId =============
+        // ============= 5. match the videoId =============
 
-        // ======== 5. join with the users collection to fetch uploader (owner) details ========
+        // ======== 6. join with the users collection to fetch uploader (owner) details ========
         {
             $lookup: {
                 from: 'users',
@@ -186,9 +199,9 @@ const getVideoById = asyncHandler(async (req, res) => {
                 ]
             }
         },
-        // ======== 5. join with the users collection to fetch uploader (owner) details ========
+        // ======== 6. join with the users collection to fetch uploader (owner) details ========
         
-        // ======== 6. join with the likes collection to fetch all documents associated with this video ========
+        // ======== 7. join with the likes collection to fetch all documents associated with this video ========
         {
             $lookup: {
                 from: 'likes',
@@ -197,9 +210,9 @@ const getVideoById = asyncHandler(async (req, res) => {
                 as: 'likes'
             }
         },
-        // ======== 6. join with the likes collection to fetch all documents associated with this video ========
+        // ======== 7. join with the likes collection to fetch all documents associated with this video ========
         
-        // ======== 7. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video ========
+        // ======== 8. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video ========
         {
             $addFields: {
                 owner: {
@@ -217,36 +230,36 @@ const getVideoById = asyncHandler(async (req, res) => {
                 }
             }
         },
-        // ======== 7. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video ========
+        // ======== 8. reshape the data: flatten the owner array, count total likes, and check if the current user has liked the video ========
         
-        // ======== 8. use projection to remove unnecessary raw data (the likes array) before sending the response ========
+        // ======== 9. use projection to remove unnecessary raw data (the likes array) before sending the response ========
         {
             $project: {
                 likes: 0
             }
         }
-        // ======== 8. use projection to remove unnecessary raw data (the likes array) before sending the response ========
+        // ======== 9. use projection to remove unnecessary raw data (the likes array) before sending the response ========
     ]);
 
-    // =========== 9. verify that the video exists in the aggregation results ===========
+    // =========== 10. verify that the video exists in the aggregation results ===========
     if (!video?.length) {
         throw new ApiError(404, 'Video does not exist');
     }
     
     console.log('Video array after aggregation: ', video);
-    // =========== 9. verify that the video exists in the aggregation results ===========
+    // =========== 10. verify that the video exists in the aggregation results ===========
 
     // if (!video.isPublished && String(video.owner?._id) !== String(req.user?._id)) {
     //     throw new ApiError(403, 'This video is private');
     // }
 
-    // ========== 10. return the final video object with a success response ==========
+    // ========== 11. return the final video object with a success response ==========
     return res
     .status(200)
     .json(
         new ApiResponse(200, video[0], 'Video details fetched successfully')
     );
-    // ========== 10. return the final video object with a success response ==========
+    // ========== 11. return the final video object with a success response ==========
 });
 
 export {
