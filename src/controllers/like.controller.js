@@ -32,7 +32,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     });
 
     console.log('Existing video likes', existingLike);
-    // 2. search the Like collection to see if a document already exists for this specific item and this specific user (req.user._id)
+    // ========= 2. search the Like collection to see if a document already exists for this specific item and this specific user (req.user._id) =========
 
 
     // ========= 3. if like exists, delete it (unlike) =========
