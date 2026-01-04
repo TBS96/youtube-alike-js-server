@@ -79,7 +79,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     const { commentId } = req.params;
     
     if (!isValidObjectId(commentId)) {
-        throw new ApiError(400, 'The provided video ID is invalid or missing');
+        throw new ApiError(400, 'The provided comment ID is invalid or missing');
     }
     // ========== 1. extract the commentId from req.params and validate that videoId is a valid MongoDB ObjectId to prevent BSON errors ==========
 
@@ -136,7 +136,7 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     const { tweetId } = req.params;
 
     if (!isValidObjectId(tweetId)) {
-        throw new ApiError(400, 'The provided video ID is invalid or missing');
+        throw new ApiError(400, 'The provided tweet ID is invalid or missing');
     }
     // ======== 1. extract the tweetId from req.params and validate that tweetId is a valid MongoDB ObjectId to prevent BSON errors ========
 
