@@ -121,7 +121,64 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     // ============= 5. return success response =============
 });
 
+
+
+const toggleTweetLike = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to toggle like a tweet by its ID **
+    1. extract the tweetId from req.params and validate that tweetId is a valid MongoDB ObjectId to prevent BSON errors
+    2. search the Like collection to see if a document already exists for this specific item and this specific user (req.user._id)
+    3. if like exists, delete it (unlike)
+    4. if the like does not exist, create a new Like document (like)
+    5. return success response
+    */
+
+    // ======== 1. extract the tweetId from req.params and validate that tweetId is a valid MongoDB ObjectId to prevent BSON errors ========
+    const { tweetId } = req.params;
+
+    if (!isValidObjectId(tweetId)) {
+        throw new ApiError(400, 'The provided video ID is invalid or missing');
+    }
+    // ======== 1. extract the tweetId from req.params and validate that tweetId is a valid MongoDB ObjectId to prevent BSON errors ========
+
+
+    // ======== 2. search the Like collection to see if a document already exists for this specific item and this specific user (req.user._id) ========
+    const existingLike = await Like.findOne({
+        tweet: tweetId,
+        likedBy: req.user?._id
+    });
+    // ======== 2. search the Like collection to see if a document already exists for this specific item and this specific user (req.user._id) ========
+
+    // ======== 3. if like exists, delete it (unlike) ========
+    if (existingLike) {
+        await Like.findByIdAndDelete(existingLike?._id);
+        return res
+        .status(200)
+        .json(
+            new ApiResponse(200, {likedBy: false}, 'Tweet unliked successfully')
+        );
+    }
+    // ======== 3. if like exists, delete it (unlike) ========
+
+
+    // ========== 4. if the like does not exist, create a new Like document (like) ==========
+    await Like.create({
+        tweet: tweetId,
+        likedBy: req.user?._id
+    });
+    // ========== 4. if the like does not exist, create a new Like document (like) ==========
+
+
+    // ============= 5. return success response =============
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, {isLiked: true}, 'Tweet liked successfully')
+    );
+    // ============= 5. return success response =============
+});
+
 export {
     toggleVideoLike,
     toggleCommentLike,
+    toggleTweetLike,
 }
