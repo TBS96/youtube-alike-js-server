@@ -115,7 +115,58 @@ const updateTweet = asyncHandler(async (req, res) => {
     // ================= 5. return success response =================
 });
 
+
+
+const deleteTweet = asyncHandler(async (req, res) => {
+    /* ** algorithm to follow step by step, to add a comment by video ID **
+    1. extract tweetId from req.params and validate it
+    2. find if the tweetId exists using findById else throw 404 error
+    3. check ownership of the tweeter using tweet.owner and req.user._id, else throw 403 error
+    4. delete tweetId using findByIdAndDelete
+    5. return success response
+    */
+
+    // ========== 1. extract tweetId from req.params and validate it ==========
+    const { tweetId } = req.params;
+    
+    if (!isValidObjectId(tweetId)) {
+        throw new ApiError(400, 'Invalid or missing tweet ID');
+    }
+    // ========== 1. extract tweetId from req.params and validate it ==========
+
+
+    // ============= 2. find if the tweetId exists using findById else throw 404 error =============
+    const tweet = await Tweet.findById(tweetId);
+    
+    if (!tweet) {
+        throw new ApiError(404, 'Tweet not found');
+    }
+    // ============= 2. find if the tweetId exists using findById else throw 404 error =============
+
+    
+    // ============ 3. check ownership of the tweeter using tweet.owner and req.user._id, else throw 403 error ============
+    if (tweet.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, 'Unauthorized! You do not have permission to delete this tweet!');
+    }
+    // ============ 3. check ownership of the tweeter using tweet.owner and req.user._id, else throw 403 error ============
+
+
+    // ============== 4. delete tweetId using findByIdAndDelete ==============
+    await Tweet.findByIdAndDelete(tweetId);
+    // ============== 4. delete tweetId using findByIdAndDelete ==============
+
+    
+    // =========== 5. return success response ===========
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, {}, 'Tweet deleted successfully')
+    );
+    // =========== 5. return success response ===========
+});
+
 export {
     createTweet,
     updateTweet,
+    deleteTweet,
 }
