@@ -93,10 +93,10 @@ const updateTweet = asyncHandler(async (req, res) => {
     
     // =========== 4. update content of tweet using findByIdAndUpdate ===========
     const updatedTweet = await Tweet.findByIdAndUpdate(
-        tweet,
+        tweetId,
         {
             $set: {
-                tweet: tweet
+                content: content
             }
         },
         {
